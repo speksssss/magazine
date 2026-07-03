@@ -1,34 +1,102 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Magazine Flipbook</title>
 
-const pdfURL = "./magazine.pdf";
-
-/* SAFETY */
-function showError(msg){
-document.getElementById("loading").innerHTML =
-"<h3>Magazine Error</h3><p>" + msg + "</p>";
-console.error(msg);
+<style>
+body {
+margin: 0;
+font-family: Arial, sans-serif;
+background: #111;
+color: white;
+text-align: center;
 }
 
+#loading {
+padding: 20px;
+}
+
+#book {
+margin: auto;
+width: 90vw;
+height: 90vh;
+}
+
+.page {
+display: flex;
+justify-content: center;
+align-items: center;
+background: white;
+}
+
+.page canvas {
+width: 100%;
+height: 100%;
+}
+
+.controls {
+position: fixed;
+bottom: 10px;
+left: 50%;
+transform: translateX(-50%);
+display: flex;
+gap: 10px;
+}
+
+button {
+padding: 10px 15px;
+cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="loading">Loading magazine...</div>
+
+<div id="book"></div>
+
+<div class="controls">
+<button id="prev">Prev</button>
+<button id="next">Next</button>
+<button id="download">Download PDF</button>
+</div>
+
+<!-- PDF.js (MUST load first) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+</script>
 
-let flipbook;
+<!-- PageFlip -->
+<script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.min.js"></script>
+
+<script>
+const pdfURL = "./magazine.pdf";
+
+function showError(msg) {
+document.getElementById("loading").innerHTML =
+"<h3>Magazine Error</h3><p>" + msg + "</p>";
+console.error("MAGAZINE ERROR:", msg);
+}
 
 window.addEventListener("load", async () => {
-
 try {
 
-setTimeout(async () => {
-
-console.log("Starting magazine...");
+console.log("Loading magazine...");
 
 /* LOAD PDF */
 const pdf = await pdfjsLib.getDocument(pdfURL).promise;
+console.log("PDF loaded:", pdf.numPages);
 
 const pages = [];
 
+/* RENDER PAGES */
 for (let i = 1; i <= pdf.numPages; i++) {
-
 const page = await pdf.getPage(i);
 const viewport = page.getViewport({ scale: 2 });
 
@@ -50,15 +118,15 @@ div.appendChild(canvas);
 pages.push(div);
 }
 
-/* FIND PAGEFLIP (FIXED COMPATIBILITY) */
+/* CHECK PAGEFLIP */
 const PageFlipClass = window.St?.PageFlip || window.PageFlip;
 
 if (!PageFlipClass) {
-showError("PageFlip failed to load (St/PageFlip missing)");
-return;
+throw new Error("PageFlip library failed to load");
 }
 
-flipbook = new PageFlipClass(document.getElementById("book"), {
+/* INIT FLIPBOOK */
+const flipbook = new PageFlipClass(document.getElementById("book"), {
 width: 850,
 height: 1100,
 size: "stretch",
@@ -70,24 +138,18 @@ maxShadowOpacity: 0.5
 flipbook.loadFromHTML(pages);
 
 /* CONTROLS */
-document.getElementById("prev").onclick =
-() => flipbook.flipPrev();
-
-document.getElementById("next").onclick =
-() => flipbook.flipNext();
-
-document.getElementById("download").onclick =
-() => window.open(pdfURL);
+document.getElementById("prev").onclick = () => flipbook.flipPrev();
+document.getElementById("next").onclick = () => flipbook.flipNext();
+document.getElementById("download").onclick = () => window.open(pdfURL);
 
 /* SUCCESS */
 document.getElementById("loading").style.display = "none";
 
-}, 500);
-
 } catch (err) {
-showError(err.message);
+showError(err?.message || err);
 }
-
 });
-
 </script>
+
+</body>
+</html>
