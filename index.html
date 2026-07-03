@@ -1,171 +1,31 @@
-<!DOCTYPE html>
-<html>
-
-<head>
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.min.js"></script>
-
-<style>
-
-body {
-margin:0;
-background: radial-gradient(circle at center, #2a2a2a, #0f0f0f);
-overflow:hidden;
-font-family:Arial;
-}
-
-/* LOADING SCREEN */
-#loading {
-position:fixed;
-inset:0;
-background:#0f0f0f;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-color:white;
-z-index:9999;
-transition:opacity .5s ease;
-}
-
-.spinner {
-width:45px;
-height:45px;
-border:4px solid #333;
-border-top:4px solid #fff;
-border-radius:50%;
-animation:spin 1s linear infinite;
-margin-bottom:15px;
-}
-
-@keyframes spin {
-100% { transform:rotate(360deg); }
-}
-
-/* MAGAZINE WRAPPER */
-#book {
-width:100vw;
-height:100vh;
-display:flex;
-justify-content:center;
-align-items:center;
-}
-
-/* PAGE STYLE */
-.page {
-background:white;
-box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-overflow:hidden;
-border-radius:6px;
-}
-
-.page canvas {
-width:100%;
-height:100%;
-}
-
-/* GLASS BUTTONS */
-.btn {
-position:fixed;
-border:none;
-cursor:pointer;
-z-index:10;
-backdrop-filter: blur(10px);
-background:rgba(255,255,255,0.15);
-color:white;
-transition:0.25s;
-}
-
-.btn:hover {
-transform:scale(1.1);
-background:rgba(255,255,255,0.25);
-}
-
-/* NAV BUTTONS */
-#prev {
-bottom:25px;
-left:25px;
-width:60px;
-height:60px;
-border-radius:50%;
-font-size:22px;
-}
-
-#next {
-bottom:25px;
-right:25px;
-width:60px;
-height:60px;
-border-radius:50%;
-font-size:22px;
-}
-
-/* DOWNLOAD */
-#download {
-top:20px;
-right:20px;
-padding:10px 16px;
-border-radius:25px;
-font-size:14px;
-}
-
-/* PAGE COUNTER */
-#counter {
-position:fixed;
-bottom:30px;
-left:50%;
-transform:translateX(-50%);
-color:white;
-font-size:14px;
-padding:6px 14px;
-border-radius:20px;
-background:rgba(255,255,255,0.12);
-backdrop-filter: blur(8px);
-}
-
-/* HIDE LOADING */
-.hidden {
-opacity:0;
-pointer-events:none;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<!-- LOADING -->
-<div id="loading">
-<div class="spinner"></div>
-Loading Magazine...
-</div>
-
-<!-- CONTROLS -->
-<button id="download" class="btn">⬇ Download</button>
-<button id="prev" class="btn">⬅</button>
-<button id="next" class="btn">➡</button>
-
-<div id="counter">0 / 0</div>
-
-<div id="book"></div>
-
 <script>
 
 const pdfURL = "./magazine.pdf";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+/* ERROR DISPLAY */
+function showError(msg){
+document.body.innerHTML =
+"<div style='color:white;background:#111;padding:20px;font-family:Arial'>" +
+"<h2>Magazine Error</h2><p>" + msg + "</p></div>";
+console.error(msg);
+}
 
-let flipbook;
-
-async function init() {
+/* CHECK LIBRARIES */
+window.addEventListener("load", async () => {
 
 try {
 
+if (!window.pdfjsLib) {
+showError("PDF.js failed to load");
+return;
+}
+
+if (!window.St) {
+showError("PageFlip library failed to load (St is undefined)");
+return;
+}
+
+/* LOAD PDF */
 const pdf = await pdfjsLib.getDocument(pdfURL).promise;
 
 const pages = [];
@@ -173,7 +33,7 @@ const pages = [];
 for (let i = 1; i <= pdf.numPages; i++) {
 
 const page = await pdf.getPage(i);
-const viewport = page.getViewport({ scale: 2.2 });
+const viewport = page.getViewport({ scale: 2 });
 
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d");
@@ -193,61 +53,27 @@ div.appendChild(canvas);
 pages.push(div);
 }
 
-flipbook = new St.PageFlip(document.getElementById("book"), {
+/* INIT FLIPBOOK */
+const flipbook = new St.PageFlip(document.getElementById("book"), {
 width: 850,
 height: 1100,
 size: "stretch",
-showCover: true,
-mobileScrollSupport: true,
-maxShadowOpacity: 0.6
+showCover: true
 });
 
 flipbook.loadFromHTML(pages);
 
-/* COUNTER */
-const counter = document.getElementById("counter");
-counter.textContent = `1 / ${pdf.numPages}`;
-
-flipbook.on("flip", (e) => {
-counter.textContent = `${e.data + 1} / ${pdf.numPages}`;
-});
-
 /* BUTTONS */
 document.getElementById("prev").onclick = () => flipbook.flipPrev();
 document.getElementById("next").onclick = () => flipbook.flipNext();
+document.getElementById("download").onclick = () => window.open(pdfURL);
 
-document.getElementById("download").onclick = () => {
-window.open(pdfURL);
-};
-
-/* KEYBOARD SUPPORT */
-document.addEventListener("keydown", (e) => {
-if (e.key === "ArrowLeft") flipbook.flipPrev();
-if (e.key === "ArrowRight") flipbook.flipNext();
-});
-
-/* FINISH LOADING */
-document.getElementById("loading").classList.add("hidden");
-
-setTimeout(() => {
 document.getElementById("loading").style.display = "none";
-}, 600);
 
 } catch (err) {
-
-console.error(err);
-document.getElementById("loading").innerHTML =
-"Failed to load magazine. Refresh page.";
-
+showError(err.message);
 }
 
-}
-
-window.addEventListener("load", () => {
-setTimeout(init, 400);
 });
 
 </script>
-
-</body>
-</html>
