@@ -1,95 +1,20 @@
-<!DOCTYPE html>
-<html>
-<head>
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/page-flip/2.0.7/page-flip.browser.min.js"></script>
-
-<style>
-
-body {
-margin:0;
-background:#1e1e1e;
-overflow:hidden;
-font-family:Arial;
-}
-
-/* Viewer */
-#book {
-width:100vw;
-height:100vh;
-}
-
-/* Buttons */
-button {
-position:fixed;
-border:none;
-cursor:pointer;
-z-index:10;
-}
-
-/* Download top right */
-#download {
-top:20px;
-right:20px;
-padding:12px 16px;
-border-radius:20px;
-background:white;
-}
-
-/* Prev bottom left */
-#prev {
-bottom:20px;
-left:20px;
-width:60px;
-height:60px;
-border-radius:50%;
-font-size:22px;
-}
-
-/* Next bottom right */
-#next {
-bottom:20px;
-right:20px;
-width:60px;
-height:60px;
-border-radius:50%;
-font-size:22px;
-}
-
-.page {
-background:white;
-}
-
-.page canvas {
-width:100%;
-height:100%;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<button id="download">⬇ Download</button>
-<button id="prev">⬅</button>
-<button id="next">➡</button>
-
-<div id="book"></div>
-
 <script>
 
-const pdfURL = "magazine.pdf";
+const pdfURL = "./magazine.pdf";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
-"https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.min.js";
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-async function loadBook() {
+async function loadPDF() {
 
-const pdf = await pdfjsLib.getDocument(pdfURL).promise;
+const loadingTask = pdfjsLib.getDocument({
+url: pdfURL,
+withCredentials: false
+});
+
+const pdf = await loadingTask.promise;
+
+const container = document.getElementById("book");
 
 const pages = [];
 
@@ -116,12 +41,13 @@ div.appendChild(canvas);
 pages.push(div);
 }
 
-const flipbook = new St.PageFlip(document.getElementById("book"), {
+const flipbook = new St.PageFlip(container, {
 width: 800,
 height: 1000,
 size: "stretch",
 showCover: true,
-mobileScrollSupport: true
+mobileScrollSupport: true,
+useMouseEvents: true
 });
 
 flipbook.loadFromHTML(pages);
@@ -135,9 +61,6 @@ window.open(pdfURL);
 
 }
 
-loadBook();
+loadPDF();
 
 </script>
-
-</body>
-</html>
