@@ -1,31 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<!-- PageFlip (FIXED RELIABLE CDN) -->
+<script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.min.js"></script>
+
+<style>
+
+body {
+margin:0;
+background: radial-gradient(circle at center, #2a2a2a, #0f0f0f);
+overflow:hidden;
+font-family:Arial;
+color:white;
+}
+
+/* LOADING SCREEN */
+#loading {
+position:fixed;
+inset:0;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+background:#0f0f0f;
+z-index:9999;
+}
+
+.spinner {
+width:45px;
+height:45px;
+border:4px solid #333;
+border-top:4px solid white;
+border-radius:50%;
+animation:spin 1s linear infinite;
+margin-bottom:15px;
+}
+
+@keyframes spin {
+100% { transform:rotate(360deg); }
+}
+
+/* BOOK */
+#book {
+width:100vw;
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+/* PAGE */
+.page {
+background:white;
+box-shadow:0 20px 60px rgba(0,0,0,0.6);
+overflow:hidden;
+border-radius:6px;
+}
+
+.page canvas {
+width:100%;
+height:100%;
+}
+
+/* BUTTONS */
+.btn {
+position:fixed;
+z-index:10;
+border:none;
+cursor:pointer;
+background:rgba(255,255,255,0.15);
+color:white;
+backdrop-filter: blur(10px);
+transition:0.2s;
+}
+
+.btn:hover {
+transform:scale(1.1);
+background:rgba(255,255,255,0.25);
+}
+
+/* NAV */
+#prev {
+bottom:25px;
+left:25px;
+width:60px;
+height:60px;
+border-radius:50%;
+font-size:22px;
+}
+
+#next {
+bottom:25px;
+right:25px;
+width:60px;
+height:60px;
+border-radius:50%;
+font-size:22px;
+}
+
+/* DOWNLOAD */
+#download {
+top:20px;
+right:20px;
+padding:10px 16px;
+border-radius:20px;
+font-size:14px;
+}
+
+/* COUNTER */
+#counter {
+position:fixed;
+bottom:25px;
+left:50%;
+transform:translateX(-50%);
+background:rgba(255,255,255,0.12);
+padding:6px 14px;
+border-radius:20px;
+font-size:14px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+<div class="spinner"></div>
+Loading Magazine...
+</div>
+
+<!-- CONTROLS -->
+<button id="download" class="btn">⬇ Download</button>
+<button id="prev" class="btn">⬅</button>
+<button id="next" class="btn">➡</button>
+
+<div id="counter">0 / 0</div>
+
+<div id="book"></div>
+
 <script>
 
 const pdfURL = "./magazine.pdf";
 
-/* ERROR DISPLAY */
-function showError(msg){
-document.body.innerHTML =
-"<div style='color:white;background:#111;padding:20px;font-family:Arial'>" +
-"<h2>Magazine Error</h2><p>" + msg + "</p></div>";
+/* SAFETY CHECK */
+function fail(msg){
+document.getElementById("loading").innerHTML =
+"<h3>Error</h3><p>" + msg + "</p>";
 console.error(msg);
 }
 
-/* CHECK LIBRARIES */
-window.addEventListener("load", async () => {
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+let flipbook;
+
+async function loadMagazine() {
 
 try {
 
-if (!window.pdfjsLib) {
-showError("PDF.js failed to load");
-return;
-}
+console.log("Loading PDF...");
 
-if (!window.St) {
-showError("PageFlip library failed to load (St is undefined)");
-return;
-}
-
-/* LOAD PDF */
 const pdf = await pdfjsLib.getDocument(pdfURL).promise;
 
 const pages = [];
@@ -53,27 +196,66 @@ div.appendChild(canvas);
 pages.push(div);
 }
 
-/* INIT FLIPBOOK */
-const flipbook = new St.PageFlip(document.getElementById("book"), {
+/* CHECK PAGEFLIP */
+if (!window.St || !St.PageFlip) {
+fail("PageFlip library failed to load");
+return;
+}
+
+flipbook = new St.PageFlip(document.getElementById("book"), {
 width: 850,
 height: 1100,
 size: "stretch",
-showCover: true
+showCover: true,
+mobileScrollSupport: true,
+maxShadowOpacity: 0.5
 });
 
 flipbook.loadFromHTML(pages);
 
-/* BUTTONS */
-document.getElementById("prev").onclick = () => flipbook.flipPrev();
-document.getElementById("next").onclick = () => flipbook.flipNext();
-document.getElementById("download").onclick = () => window.open(pdfURL);
+/* COUNTER */
+const counter = document.getElementById("counter");
+counter.textContent = `1 / ${pdf.numPages}`;
 
-document.getElementById("loading").style.display = "none";
-
-} catch (err) {
-showError(err.message);
-}
-
+flipbook.on("flip", (e) => {
+counter.textContent = `${e.data + 1} / ${pdf.numPages}`;
 });
 
+/* BUTTONS */
+document.getElementById("prev").onclick =
+() => flipbook.flipPrev();
+
+document.getElementById("next").onclick =
+() => flipbook.flipNext();
+
+document.getElementById("download").onclick =
+() => window.open(pdfURL);
+
+/* HIDE LOADING */
+document.getElementById("loading").style.display = "none";
+
+console.log("Magazine loaded successfully");
+
+} catch (err) {
+fail(err.message);
+}
+
+}
+
+/* SAFE START (prevents blank screen bug) */
+window.addEventListener("load", () => {
+setTimeout(loadMagazine, 600);
+});
+
+/* PREVENT FOREVER LOADING */
+setTimeout(() => {
+if (document.getElementById("loading").style.display !== "none") {
+document.getElementById("loading").innerHTML =
+"Still loading... check console (F12)";
+}
+}, 8000);
+
 </script>
+
+</body>
+</html>
